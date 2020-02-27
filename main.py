@@ -1,24 +1,115 @@
 from slippi import Game
 from slippi.event import Start
 import sys
+import os
 
 from slippi.parse import parse
 from slippi.event import ParseEvent
 
 def main():
-    g = Game('MarthPikachu20191030.slp')
-    frames = g.frames
-    ports = frames[0].ports
+    winnersList = []
+    winnersDict = {}
+    numOfGamesDict = {}
+    fileName = 'SmallReplays/'
+    entries = getFileEntries(fileName)
     
-    # XYPositionChange(g)
-    # healthChanged(g)
-    printCharacters(ports)
-    # landedAttacks(g)
+    for entry in entries:
+       
+        if entry[-3:] == 'slp':
+           
+            g = Game(fileName + entry)
+            frames = g.frames
+            ports = frames[0].ports
 
-    # gameStockRecap(g)
+            
+            # XYPositionChange(g)
+            # healthChanged(g)
+            # printCharacters(ports)
+            # landedAttacks(g)
+            winners = getWinner(g)
+            winnersDict = UpdateWinnersDictionary(winners, winnersList, winnersDict)
+            # gameStockRecap(g)
+
+            for port in ports:
+                if port != None:
+                    character = str(port.leader.post.character)
+                    charExist = numOfGamesDict.get(character)
+                    if charExist == None:
+                        numOfGamesDict[character] = 1
+                    else:
+                        numOfGamesDict[character] += 1
+
+    # printWinnersDict(winnersDict)
+    character = 'InGameCharacter.SHEIK'
+    # printNumOfGamesDict(numOfGamesDict)    
+    charWins = winnersDict[character]
+    charNumOfGames = numOfGamesDict[character]
+    charWinPercentage = round((float(charWins / charNumOfGames) * 100), 2)
+
+    print( character + "'s win percentage is: " + str(charWinPercentage) + "%")
+
+
+def printWinnersDict(winnersDict):                 
+    for character in winnersDict:
+        print(str(character) + " has this " + str(winnersDict[character]) + " wins.")
+
+def printNumOfGamesDict(numOfGamesDict):
+    for character in numOfGamesDict:
+        print(str(character) + " appear in " + str(numOfGamesDict[character]) + " games.")
+
+
+
+    
+
+def UpdateWinnersDictionary(winners, winnersList, winnersDictionary):
+    for winner in winners:
+        winnersList.append(winner)
+        winnerForDict = winnersDictionary.get(winner)
+        if winnerForDict == None:
+            winnersDictionary[winner] = 1
+        else:
+            winnersDictionary[winner] += 1
+
+    return winnersDictionary
+
+    
+
+    
+
+
+
+def getWinner(g):
+    """Return the winner of a match """
+    
+    lastFrame = g.frames[-1]
+
+    ports = lastFrame.ports
+    winners = []
+    for port in ports:
+        if port != None:
+            player = port.leader.post
+
+            if player.stocks != 0:
+                # print("This character won " + str(player.character))
+                name = str(player.character)
+                winners.append(name)
+
+        
+    # print('------------------------\n')   
+    return winners
+
+def getFileEntries(fileName):
+    files = os.listdir(fileName)
+    entries = []
+    for theFile in files:
+        if theFile[-3:] == 'slp':
+            entries.append(theFile)
+   
+    
+    return entries
 
 def gameStockRecap(g):
-    for index in range(len(g.frames) - 10):
+    for index in range(len(g.frames) - 1):
         lossStock(g.frames[index],g.frames[index + 1])
 
     for port in g.frames[-1].ports:
@@ -27,33 +118,39 @@ def gameStockRecap(g):
             print("This character lost " + str(port.leader.post.character))
             print("They were killed by marth")
             deadCharacter = str(port.leader.post.character)
-            EndGame(deadCharacter,g.frames[-1].ports)
+            isOver = EndGame(g.frames)
+    print('------------------------\n')        
+
+
+# def lastCharacterToAttack(g, currentFrameIndex, nextFrameIndex):
+#     """ This will return the last character that attacked """
+#     for port in g.frames[currentFrameIndex].ports:
         
+#         pass
 
-
-
-def EndGame(deadCharacter,ports):
-
+def EndGame(frames):
+        """ Returns true if the game ends and says who killed who"""
+        ports = frames[-1].ports
         for port in ports:
-            if port != None and port.leader.post.stocks != 0:
+            if port != None and port.leader.post.stocks == 0:
+                deadCharacter = str(port.leader.post.character)
                 print("The move that killed " + deadCharacter + " was " + str(port.leader.post.last_attack_landed)) 
-
-
-
-
-
-
+                return True
+        return False
 
 def landedAttacks(g):    
 
     frames = g.frames
-    playerOne = frames[0].ports[0].leader.post
-    printCharacterPort(playerOne)
-    for index in range(len(g.frames)-15):
-        playerOne = frames[index].ports[0].leader.post
-        playerOneNext = frames[index + 1].ports[0].leader.post
-        if playerOne.last_attack_landed != None and playerOne.last_attack_landed != playerOneNext.last_attack_landed:
-            print(playerOne.last_attack_landed)
+    for portIndex in range(len(frames[0].ports)):
+        if frames[0].ports[portIndex] != None:
+            player = frames[0].ports[portIndex].leader.post
+        
+            printCharacterPort(player)
+            for framesIndex in range(len(g.frames)-1):
+                player = frames[framesIndex].ports[portIndex].leader.post
+                playerNext = frames[framesIndex + 1].ports[portIndex].leader.post
+                if player.last_attack_landed != None and player.last_attack_landed != playerNext.last_attack_landed:
+                    print(player.last_attack_landed)
         
         
 
@@ -63,11 +160,13 @@ def printCharacterPort(playerOne):
 
 
 def printCharacters(ports):
+    print('----------------------------')
     for port in ports:
         if port != None:
             character = port.leader.post.character
 
             print("The characters are " + str(character))
+    print('----------------------------\n')
 
 def printGameStartAndEnd(g):
     s = g.start
@@ -79,8 +178,6 @@ def printGameStartAndEnd(g):
     
 def printMetadata(g):    
     print(g.metadata)
-
-
 
 def healthChanged(g):
     frames = g.frames
@@ -94,7 +191,6 @@ def healthChanged(g):
             print("\nThe new health is " + str(EndDamage))
             print("\nThe change was by " + str(healthChange))
 
-
 def lossStock(frame,nextFrame):
     
     for index in range(len(frame.ports)):
@@ -107,8 +203,6 @@ def lossStock(frame,nextFrame):
                 print("\nThis is for character " + character)
                 print("\nThis player had " + str(currentStockCount))
                 print("\nThey now have " + str(nextStockCount))
-
-    
 
 def XYPositionChange(g):
 
@@ -125,8 +219,6 @@ def XYPositionChange(g):
         
         if yPosition >= 20:
             print("\nThe y position changed by " + str(yPosition))
-
-   
 
    
 
